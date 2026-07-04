@@ -1,0 +1,8 @@
+# Dynatrace app bundle (generated — build from source instead)
+*.zip
+
+# macOS
+.DS_Store
+
+# Node (if you ever add a build step)
+node_modules/
