@@ -19,22 +19,29 @@ Claude Code then:
 The app auto-detects the tenant URL from the browser hostname, so you just open it and go.
 
 ## Screenshots
+
 DT BP - AI Prompt
+
 <img width="611" height="868" alt="Screenshot 2026-07-04 at 14 40 32" src="https://github.com/user-attachments/assets/8d084b0e-102d-405d-a9f9-f8a58beea170" />
 
 Generated Prompt
+
 <img width="758" height="914" alt="Screenshot 2026-07-04 at 14 45 23" src="https://github.com/user-attachments/assets/7eb9dbcb-297c-412b-bc88-8b2fc855d4f3" />
 
 Claude Code Log Analysis
+
 <img width="978" height="698" alt="Screenshot 2026-07-04 at 14 47 33" src="https://github.com/user-attachments/assets/51a0ce18-b62b-4b2c-8e70-fc4c519aa19f" />
 
 Dynatrace Logs
+
 <img width="1472" height="694" alt="Screenshot 2026-07-04 at 14 59 14" src="https://github.com/user-attachments/assets/ce79c599-3ece-4636-8c27-c91c48a31cf6" />
 
 Dynatrace OpenPipeline Generated Parser
+
 <img width="898" height="586" alt="Screenshot 2026-07-04 at 14 52 31" src="https://github.com/user-attachments/assets/5ece7a3c-25cc-49a5-8d3e-150c38639f3a" />
 
 Dynatrace Generated Dashboard
+
 <img width="1161" height="988" alt="Screenshot 2026-07-04 at 14 58 31" src="https://github.com/user-attachments/assets/3be3149e-54d6-4c88-9139-97a3c276ee99" />
 
 ## Prerequisites — Claude Code setup
