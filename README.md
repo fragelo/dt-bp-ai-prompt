@@ -23,7 +23,7 @@ The app auto-detects the tenant URL from the browser hostname, so you just open 
 ## Screenshots
 
 | Prompt Generator | Setup Guide |
-|---|---|
+|<img width="611" height="868" alt="Screenshot 2026-07-04 at 14 40 32" src="https://github.com/user-attachments/assets/8d084b0e-102d-405d-a9f9-f8a58beea170" />|---|
 | *(add screenshots here)* | *(add screenshots here)* |
 
 ---
