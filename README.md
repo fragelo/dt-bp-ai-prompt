@@ -20,6 +20,18 @@ The app auto-detects the tenant URL from the browser hostname, so you just open 
 
 ---
 
+## Screenshots
+
+| Prompt Generator | Setup Guide |
+|---|---|
+| *(add screenshot here)* | *(add screenshot here)* |
+
+| Test Prompt | Generated prompt example |
+|---|---|
+| *(add screenshot here)* | *(add screenshot here)* |
+
+---
+
 ## What's new in v2.0
 
 - **LogPatternExtractor** — new log source mode that uses the Dynatrace MCP `log-pattern-extractor` tool to auto-detect DPL patterns from Grail via ML clustering. Skips manual format analysis entirely when available.
