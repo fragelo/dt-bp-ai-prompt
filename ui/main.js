@@ -33,11 +33,12 @@ let state = {
   form: {
     // Env
     tenant: detectTenantUrl(),
-    // Log source — three modes
-    sourceMode: "sample",   // "sample" | "bucket_auto" | "bucket_custom_dql"
-    bucket: "",             // only used in bucket_auto mode
+    // Log source — four modes
+    sourceMode: "sample",   // "sample" | "bucket_auto" | "bucket_custom_dql" | "log_pattern_extractor"
+    bucket: "",
     sampleLines: "",
     customDql: "",
+    lpeTimeframe: "now-2h",
     // Format
     logFormat: "Mixed / unknown",
     // Parser destination
@@ -227,6 +228,18 @@ function buildSetup() {
         h("div", { style: { display: "flex", gap: "12px", alignItems: "flex-start", padding: "6px 0", borderBottom: `1px solid ${T.border}` } },
           h("span", { style: { fontSize: "14px", flexShrink: "0", color: T.success } }, "✓"),
           h("div", {}, codeInline(cmd), h("span", { style: { ...S.textXs, marginLeft: "8px" } }, "→ " + check))
+        )
+      ),
+      h("div", { style: { marginTop: "14px", padding: "10px 12px", borderRadius: T.radius, background: T.warningBg, border: `1px solid ${T.warning}40` } },
+        h("p", { style: { ...S.textSm, fontWeight: "500", color: T.warning, marginBottom: "4px" } }, "📁 Working directory tip"),
+        h("p", { style: S.textXs },
+          "Claude Code writes generated files (YAML, JSON, DPL) to a working directory during the session. The generated prompt sets this to ",
+          codeInline("~/dt-analysis/<slug>/"),
+          " automatically. If you run a prompt without a slug, files may end up in ",
+          codeInline("/tmp"),
+          " or the current directory — ask Claude Code ",
+          codeInline("where did you save the files?"),
+          " if unsure."
         )
       )
     )
@@ -490,6 +503,7 @@ function buildGenerator() {
     sample: "Paste log lines directly — Claude Code analyzes them without querying DT.",
     bucket_auto: "Claude Code queries a specific Grail bucket with a standard DQL.",
     bucket_custom_dql: "You provide the exact DQL — Claude Code runs it as-is. Useful for filtered or complex queries.",
+    log_pattern_extractor: "Claude Code uses the MCP log-pattern-extractor tool to auto-detect DPL patterns from Grail — skips manual format analysis.",
   };
   const sourceModeBody = [
     h("p", { style: { ...S.textXs, marginBottom: "10px" } }, modeDesc[f.sourceMode]),
@@ -503,21 +517,42 @@ function buildGenerator() {
         h("p", { style: { ...S.textXs, marginTop: "4px" } },
           "The query will filter on this bucket: ", codeInline("filter matchesPhrase(dt.system.bucket, \"...\")"))
       )
-    ] : [
+    ] : f.sourceMode === "bucket_custom_dql" ? [
       h("label", { style: S.label }, "Custom DQL query"),
       buildTextarea("customDql",
         "fetch logs, from: now()-2h, to: now()\n| filter dt.system.bucket == \"my-bucket\"\n| filter matchesPhrase(content, \"ERROR\")\n| sort timestamp desc\n| limit 200\n| fields timestamp, loglevel, content, service.name",
         f.customDql, 130),
       h("p", { style: { ...S.textXs, marginTop: "6px" } }, "Claude Code will execute this exact query and analyze the results.")
+    ] : [
+      // log_pattern_extractor
+      h("div", { style: { background: T.warningBg, border: `1px solid ${T.warning}40`, borderRadius: T.radius, padding: "8px 12px", marginBottom: "10px" } },
+        h("p", { style: { ...S.textXs, color: T.warning } },
+          "⚠️  Requires MCP server with log-pattern-extractor tool available. Run ", codeInline("list_davis_analyzers"), " in Claude Code to verify. Content cap: 1,500 chars. Sampling above 50K records.")
+      ),
+      h("div", { style: { marginBottom: "10px" } },
+        h("label", { style: S.label }, "Log bucket name (required)"),
+        buildInput("bucket", "e.g. default, custom-app-logs", f.bucket),
+      ),
+        h("div", {},
+          h("label", { style: S.label }, "Timeframe (optional)"),
+          (() => {
+            const el = h("input", { style: S.input, placeholder: "now-2h" });
+            el.value = f.lpeTimeframe || "now-2h";
+            el.addEventListener("input", e => { state.form.lpeTimeframe = e.target.value; });
+            return el;
+          })(),
+          h("p", { style: { ...S.textXs, marginTop: "4px" } }, "Default: now-2h. Adjust for your log volume.")
+        )
     ]
   ];
 
   const secSource = card(
     sectionTitle("Log source"),
-    h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "14px" } },
+    h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px", marginBottom: "14px" } },
       radioBtn("📋 Log sample", "paste lines directly", "sample", f.sourceMode, "sourceMode"),
       radioBtn("🔍 Bucket auto query", "standard DQL generated", "bucket_auto", f.sourceMode, "sourceMode"),
       radioBtn("✍️ Custom DQL query", "you write the exact query", "bucket_custom_dql", f.sourceMode, "sourceMode"),
+      radioBtn("🤖 LogPatternExtractor", "MCP auto-detects DPL patterns", "log_pattern_extractor", f.sourceMode, "sourceMode"),
     ),
     ...sourceModeBody.flat()
   );
@@ -635,16 +670,20 @@ function buildGenerator() {
     sectionTitle("Artefacts & additional context"),
     h("div", { style: { display: "flex", flexDirection: "column", gap: "14px" } },
       h("div", {},
-        h("label", { style: S.label }, "Artefact name / slug"),
+        h("label", { style: S.label }, "Artefact slug / working directory name"),
         buildInput("artifactSlug",
-          `e.g. ${defaultSlug} (used to name parser, dashboard files)`,
+          "leave empty → Claude Code proposes a descriptive name",
           f.artifactSlug),
-        h("p", { style: { ...S.textXs, marginTop: "4px" } },
-          "Used to name all generated files: ",
-          codeInline("parse-<slug>-logs.dpl"),
-          ", ",
-          codeInline("dashboard-<slug>.json"),
-          ". Leave empty to auto-generate from tenant URL.")
+        h("div", { style: { marginTop: "6px", padding: "8px 10px", borderRadius: T.radius, background: T.cardSubdued, border: `1px solid ${T.border}` } },
+          h("p", { style: S.textXs },
+            f.artifactSlug.trim()
+              ? `Working directory: ${codeInline("~/dt-analysis/" + f.artifactSlug.trim())}`
+              : "If left empty, Claude Code will propose a descriptive slug (e.g. " + codeInline("costco-docker-json-openpipeline") + ") based on the bucket, log format and destination — and confirm it before creating files."
+          ),
+          h("p", { style: { ...S.textXs, marginTop: "4px" } },
+            "All files (YAML, JSON, DPL) are saved here. The path is also recorded in the notebook."
+          )
+        )
       ),
       h("div", {},
         h("label", { style: S.label }, "Additional context for parser & dashboard"),
@@ -715,14 +754,38 @@ function generatePrompt(f) {
   const wantBp = !noParser && f.destination.includes("Bindplane");
   const dp = noParser ? "historical" : f.dashParseMode;
   const parserLabel = wantOp ? "OpenPipeline" : wantBp ? "Bindplane" : null;
-  // Slug: user-defined > derived from tenant > derived from bucket > fallback
-  const slug = (
-    f.artifactSlug.trim() ||
-    (hasTenant ? hasTenant.replace(/https?:\/\//, "").split(".")[0] : "") ||
-    (hasBucket ? hasBucket.toLowerCase().replace(/[^a-z0-9]/g, "-") : "") ||
-    "dtlog"
-  ).toLowerCase().replace(/[^a-z0-9-]/g, "-");
   const tenantUrl = hasTenant || "https://<env-id>.apps.dynatrace.com";
+
+  // Slug: user-defined > auto-propose by Claude Code
+  const hasCustomSlug = f.artifactSlug.trim() !== "";
+  const slug = hasCustomSlug
+    ? f.artifactSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-")
+    : (hasTenant ? hasTenant.replace(/https?:\/\//, "").split(".")[0] : "") ||
+      (hasBucket ? hasBucket.toLowerCase().replace(/[^a-z0-9]/g, "-") : "") ||
+      "dtlog";
+
+  const workingDirSection = hasCustomSlug
+    ? `## Working directory
+Create and use a dedicated directory for all files generated in this session:
+\`\`\`bash
+mkdir -p ~/dt-analysis/${slug} && cd ~/dt-analysis/${slug}
+\`\`\`
+Save ALL generated files (YAML, JSON, DPL) here. Confirm the path after each file creation. Do not use /tmp or the current directory.
+The working directory path will be recorded in the notebook.`
+    : `## Working directory
+Before creating any file, propose a descriptive slug for this session based on:
+- The bucket or log source name
+- The log format detected in Step 1/2
+- The parser destination (OpenPipeline / Bindplane / none)
+
+Example: \`costco-docker-json-openpipeline\`, \`payment-svc-keyvalue-bindplane\`, \`nginx-access-dashboard-only\`
+
+Then create and use that directory:
+\`\`\`bash
+mkdir -p ~/dt-analysis/<proposed-slug> && cd ~/dt-analysis/<proposed-slug>
+\`\`\`
+Confirm the proposed slug and full path before proceeding. Save ALL generated files here. Do not use /tmp or the current directory.
+The working directory path and file list will be recorded in the notebook.`;
   const parserContextSection = f.parserContext.trim()
     ? `\n## Additional context for parser & dashboard\n${f.parserContext.trim()}\n`
     : "";
@@ -752,14 +815,44 @@ Do not proceed until both MCP server and dtctl context are confirmed to point to
     sourceSection = `## Step 0 — Log sample provided\nAnalyze this sample (no DQL query needed):\n\n${f.sampleLines.trim()}\n\n## Step 1 — Log source\nUse the sample above. Skip the DQL query.`;
   } else if (f.sourceMode === "bucket_custom_dql" && f.customDql.trim()) {
     sourceSection = `## Step 1 — Execute custom DQL query\nRun this exact DQL query using dtctl or MCP execute_dql:\n\n\`\`\`dql\n${f.customDql.trim()}\n\`\`\`\n\nShow me the first 20-30 records. This is the exact query the user wants — do not modify it.${hasTenant ? `\n\nTenant: \`${hasTenant}\`` : ""}`;
+  } else if (f.sourceMode === "log_pattern_extractor") {
+    const lpeQuery = hasBucket
+      ? `fetch logs, from: ${f.lpeTimeframe || "now-2h"} | filter matchesPhrase(dt.system.bucket, "${hasBucket}")`
+      : `fetch logs, from: ${f.lpeTimeframe || "now-2h"}`;
+    sourceSection = `## Step 1 — Auto-detect log patterns via LogPatternExtractor (MCP)
+IMPORTANT: this mode skips manual log format analysis. Use the MCP log-pattern-extractor tool directly.
+
+First verify the tool is available:
+\`\`\`
+list_davis_analyzers
+\`\`\`
+Confirm \`dt.statistics.clustering.LogPatternExtractor\` appears. If not, stop and notify the user — fall back to Log sample or Bucket auto query mode instead.
+
+Run the pattern extractor:
+\`\`\`
+log-pattern-extractor:
+  logQuery: "${lpeQuery}"
+  numberOfExamples: 5
+  timeframe: { startTime: "${f.lpeTimeframe || "now-2h"}", endTime: "now" }
+\`\`\`
+
+From the results, extract:
+1. The top 3 DPL patterns ranked by frequency
+2. For each pattern: the matched field names and their types
+3. Which pattern best represents the majority of logs
+4. Any patterns that indicate errors or anomalies
+
+Use the top pattern as the basis for Step 3 (parser generation). Skip Step 2 format analysis — the LogPatternExtractor output replaces it.${hasTenant ? `\n\nTenant: \`${hasTenant}\`` : ""}`;
   } else if (hasTenant && hasBucket) {
     sourceSection = `## Step 1 — Sample logs from bucket\nTenant: \`${hasTenant}\`\nBucket: \`${hasBucket}\`\n\nRun this DQL via dtctl or MCP execute_dql:\n\n\`\`\`dql\nfetch logs, from: now()-1h, to: now()\n| filter matchesPhrase(dt.system.bucket, "${hasBucket}")\n| limit 100\n| fields timestamp, status, content, loglevel\n\`\`\`\n\nShow me the first 20 records.`;
   } else {
     sourceSection = `## Step 1 — Log source\nNo sample or bucket specified. Ask the user to either:\n- Paste 20-30 representative log lines, OR\n- Provide a bucket name and (optionally) a DQL query to run`;
   }
 
-  // ── Step 2: format analysis ──
-  const formatSection = `## Step 2 — Log format analysis
+  // ── Step 2: format analysis (skipped if LogPatternExtractor used) ──
+  const formatSection = f.sourceMode === "log_pattern_extractor" ? `## Step 2 — Log format analysis
+Skipped — LogPatternExtractor output from Step 1 replaces manual format analysis.
+Use the DPL patterns returned by the tool as the basis for Step 3.` : `## Step 2 — Log format analysis
 Expected format: ${f.logFormat !== "Mixed / unknown" ? f.logFormat : "(auto-detect from sample)"}
 
 Produce a structured report:
@@ -839,6 +932,8 @@ OpenPipeline matcher syntax rules — violations will cause apply to fail:
 - ALLOWED: \`matchesPhrase(content, "text")\`
 - NOT ALLOWED: \`startsWith()\`, \`endsWith()\`, \`contains()\` — use matchesValue with wildcard instead
 - NOT ALLOWED: regex syntax in matchers — use matchesPhrase or matchesValue
+- NOT ALLOWED: \`'['\` and \`']'\` bracket literals in DPL inside OpenPipeline processors — use \`splitString(field, "[")\` and array indexing instead
+- NOT ALLOWED: processor ID shorter than 3 characters — use descriptive IDs like \`processor-k8s-logs-001\`
 - Use \`"true"\` (string) to match all logs
 
 **Step 3-v: Apply**
@@ -1024,20 +1119,29 @@ Note: the OpenPipeline UI app (\`dynatrace.openpipeline\`) may be hidden on some
 ${opSettingsUrl}
 ` : "";
 
+  const workingDir = `~/dt-analysis/${slug}`;
+
   const importantNote = noParser
     ? `## Important: apply everything directly
 No parser will be created — dashboard tiles will embed inline DQL parse commands derived from the log format analysis.
-Apply the dashboard directly using dtctl or the Documents API as described in Step 4.`
+Apply the dashboard directly using dtctl or the Documents API as described in Step 4.
+
+${workingDirSection}`
     : `## Important: apply everything directly
 Do NOT just generate files and tell the user to apply them manually.
 After generating each artifact (DPL parser, Bindplane processor, dashboard${f.createNotebook ? ", notebook" : ""}), apply it immediately using the methods described in each step.
 OpenPipeline is managed via dtctl Settings API: \`dtctl create settings --schema builtin:openpipeline.logs.pipelines -f <file>\`
-${opAvailCheck}`;
+${opAvailCheck}
+${workingDirSection}`;
 
   // ── Step 5: notebook (optional) ──
   const notebookSection = f.createNotebook ? `
 ## Step 5 — Create a documentation notebook
-Load skill dt-notebooks. Create a Dynatrace notebook named \`Log Analysis — ${slug}\` that documents everything done in this session:
+Load skill dt-notebooks. Create a Dynatrace notebook named \`Log Analysis — ${hasCustomSlug ? slug : "<slug>"}\` that documents everything done in this session:
+
+Section 0 — **Session info** (markdown)
+: Working directory: \`~/dt-analysis/${hasCustomSlug ? slug : "<proposed-slug>"}/\`
+List all files generated in this session with their full path and purpose (YAML, JSON, DPL files). Include the date and target tenant URL.
 
 Section 1 — **Log Format Analysis** (markdown)
 : Summary of the format detected in Step 2, list of extracted fields with types, error patterns found, anomalies noted.

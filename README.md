@@ -2,7 +2,7 @@
 
 A Dynatrace app that generates optimized [Claude Code](https://claude.ai/code) prompts for log analysis, DPL/OTEL parser generation, and Dynatrace dashboard creation.
 
-![DT BP - AI Prompt](https://img.shields.io/badge/Dynatrace-App-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![DT BP - AI Prompt](https://img.shields.io/badge/Dynatrace-App-blue) ![Version](https://img.shields.io/badge/version-2.0.0-green) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -11,40 +11,25 @@ A Dynatrace app that generates optimized [Claude Code](https://claude.ai/code) p
 Instead of writing complex prompts from scratch every time, this app collects your context (tenant URL, log source, parser destination, dashboard type) and generates a structured, opinionated prompt ready to paste into Claude Code.
 
 Claude Code then:
-1. Analyzes the log format (from a pasted sample, a DQL query on a Grail bucket, or a custom DQL)
+1. Analyzes the log format — from a pasted sample, a DQL query on a Grail bucket, a custom DQL, or automatically via the **LogPatternExtractor** MCP tool
 2. Generates and applies a **DPL parser** to OpenPipeline or a **YAML processor** to Bindplane
-3. Creates and deploys a **Dynatrace dashboard** with DQL tiles based on the extracted fields
-4. Optionally creates a **documentation notebook** on the tenant
+3. Creates and deploys **two Dynatrace dashboards**: one using pipeline-extracted fields (for new logs), one with inline parse (for historical logs)
+4. Creates a **documentation notebook** on the tenant with session info, parser code, DQL queries, and recommended next steps
 
 The app auto-detects the tenant URL from the browser hostname, so you just open it and go.
 
-## Screenshots
+---
 
+## What's new in v2.0
 
-DT BP - AI Prompt
+- **LogPatternExtractor** — new log source mode that uses the Dynatrace MCP `log-pattern-extractor` tool to auto-detect DPL patterns from Grail via ML clustering. Skips manual format analysis entirely when available.
+- **Working directory** — every generated prompt sets a dedicated `~/dt-analysis/<slug>/` directory. All files are saved there and the path is recorded in the notebook.
+- **Auto-propose slug** — if you leave the slug field empty, Claude Code proposes a descriptive name based on bucket + log format + destination (e.g. `costco-docker-json-openpipeline`) and confirms it before proceeding.
+- **Notebook Section 0** — every notebook now opens with a session log: working directory, full file list with paths and purpose, date, tenant URL.
+- **OpenPipeline rules hardened** — prompt now explicitly forbids `'['`/`']'` bracket literals in DPL (use `splitString()` instead) and short processor IDs, preventing the most common apply failures.
+- **Both dashboard strategies** — always generates two dashboards: pipeline fields (clean queries, post-parser) and historical inline parse (works on logs ingested before the parser).
 
-<img width="611" height="868" alt="Screenshot 2026-07-04 at 14 40 32" src="https://github.com/user-attachments/assets/8d084b0e-102d-405d-a9f9-f8a58beea170" />
-
-Generated Prompt
-
-<img width="758" height="914" alt="Screenshot 2026-07-04 at 14 45 23" src="https://github.com/user-attachments/assets/7eb9dbcb-297c-412b-bc88-8b2fc855d4f3" />
-
-Claude Code Log Analysis
-
-<img width="978" height="698" alt="Screenshot 2026-07-04 at 14 47 33" src="https://github.com/user-attachments/assets/51a0ce18-b62b-4b2c-8e70-fc4c519aa19f" />
-
-Dynatrace Logs
-
-<img width="1472" height="694" alt="Screenshot 2026-07-04 at 14 59 14" src="https://github.com/user-attachments/assets/ce79c599-3ece-4636-8c27-c91c48a31cf6" />
-
-Dynatrace OpenPipeline Generated Parser
-
-<img width="898" height="586" alt="Screenshot 2026-07-04 at 14 52 31" src="https://github.com/user-attachments/assets/5ece7a3c-25cc-49a5-8d3e-150c38639f3a" />
-
-Dynatrace Generated Dashboard
-
-<img width="1161" height="988" alt="Screenshot 2026-07-04 at 14 58 31" src="https://github.com/user-attachments/assets/3be3149e-54d6-4c88-9139-97a3c276ee99" />
-
+---
 
 ## Prerequisites — Claude Code setup
 
@@ -58,9 +43,8 @@ Relevant skills: `dt-dql-essentials`, `dt-obs-logs`, `dt-dashboards`, `dt-notebo
 
 ### 2. dtctl CLI + skill
 ```bash
-# Install dtctl
-brew install dynatrace-oss/tap/dtctl        # macOS
-# or: curl -fsSL https://raw.githubusercontent.com/dynatrace-oss/dtctl/main/install.sh | sh
+# macOS
+brew install dynatrace-oss/tap/dtctl
 
 # Authenticate
 dtctl auth login --context my-env \
@@ -68,7 +52,6 @@ dtctl auth login --context my-env \
 
 # Install the dtctl skill for Claude Code
 dtctl skills install
-# or: npx skills add dynatrace-oss/dtctl
 
 # Verify
 dtctl doctor
@@ -76,9 +59,9 @@ dtctl doctor
 
 ### 3. Dynatrace MCP Server
 **Option A — Remote MCP (recommended):**
-In Claude Code, run `/mcp` → add the "Dynatrace" connector from the marketplace. Authentication via browser SSO.
+In Claude Code, run `/mcp` → add the "Dynatrace" connector from the marketplace.
 
-**Option B — Local MCP** (add to `~/.claude/claude.json`):
+**Option B — Local MCP** (`~/.claude/claude.json`):
 ```json
 {
   "mcpServers": {
@@ -97,9 +80,7 @@ In Claude Code, run `/mcp` → add the "Dynatrace" connector from the marketplac
 ### 4. Bindplane CLI + skill *(optional — only for Bindplane parser destination)*
 ```bash
 # Requires Bindplane CLI v1.98+
-bindplane skill install     # choose: Claude Code
-
-# Login to your Bindplane server
+bindplane skill install
 bindplane login --server https://<bindplane-server>:3001
 ```
 
@@ -107,34 +88,27 @@ bindplane login --server https://<bindplane-server>:3001
 
 ## Installation on a Dynatrace tenant
 
-1. Download the latest release zip from the [Releases](../../releases) page: `dt-log-analyst-app.zip`
-2. Go to your Dynatrace tenant
-3. Open **App Management** (search for "App" in the nav)
-4. Click **Upload app** and select the zip
-5. The app appears as **DT BP - AI Prompt** (`my.dt.bp.ai.prompt`)
+1. Download `dt-bp-ai-prompt-app.zip` from the [Releases](../../releases) page
+2. Go to your Dynatrace tenant → **App Management** → **Upload app**
+3. The app appears as **DT BP - AI Prompt** (`my.dt.bp.ai.prompt`)
 
-> The app requires no OAuth scopes — it only generates prompts, it does not call Dynatrace APIs itself.
+> No OAuth scopes required — the app only generates prompts, it does not call Dynatrace APIs itself.
 
 ---
 
 ## Building from source
 
-The app is pure vanilla JavaScript — no build step required.
-
-To package a new zip for upload:
-```bash
-# From the repo root
-zip -r dt-log-analyst-app.zip ui/ manifest.yaml icon.svg
-```
-
-The `ui/main.css` (Dynatrace Stelvio design system) is not included in the repo because it is bundled at ~450KB and changes with Dynatrace platform updates. **Copy it from an existing Dynatrace app bundle** before zipping:
+No build step required — pure vanilla JS.
 
 ```bash
-# If you have an existing DT app zip:
+# Copy main.css from any existing DT app bundle (not included in repo)
 unzip existing-dt-app.zip ui/main.css -d .
+
+# Package
+./build.sh
 ```
 
-Or download it from any Dynatrace tenant app bundle you have access to.
+See `build.sh` for details. `ui/main.css` (Dynatrace Stelvio design system, ~450KB) is not committed to the repo.
 
 ---
 
@@ -143,27 +117,31 @@ Or download it from any Dynatrace tenant app bundle you have access to.
 ### Three pages
 
 **Prompt Generator** — fill in what you have (all fields optional):
-- Tenant URL (auto-detected from current hostname)
-- Log source: paste a sample, use bucket auto-query, or write a custom DQL
+- Tenant URL — auto-detected from current hostname
+- Log source: paste a sample / bucket auto-query / custom DQL / **LogPatternExtractor (MCP)**
 - Log format hint
-- Parser destination: OpenPipeline (DPL), Bindplane (OTEL processor), or None (inline parse in dashboard tiles)
-- Dashboard type: predefined tiles, custom description, or auto-generated from analysis
-- DQL parsing strategy: pipeline fields (post-parser), historical inline parse, or both
-- Artefact slug and additional context for parser/dashboard
+- Parser destination: OpenPipeline (DPL) / Bindplane (OTEL processor) / None
+- Dashboard: predefined tiles / custom description / auto from analysis
+- DQL parsing strategy: pipeline fields / historical inline / both
+- Artefact slug (or leave empty for auto-propose)
+- Additional context for parser & dashboard
 
-**Setup Guide** — step-by-step instructions for configuring Claude Code with all required skills and MCP servers.
+**Setup Guide** — step-by-step instructions with a working directory tip explaining where Claude Code saves generated files.
 
-**Test Prompt** — generates a setup verification prompt adapted to your current Generator settings. Paste into Claude Code to verify MCP, dtctl, skills, and DQL all work before running the full analysis.
+**Test Prompt** — dynamically generated from your current Generator settings. Verifies MCP, dtctl, skills, and DQL before running the full workflow.
 
 ### Generated prompt structure
 
 ```
 Prerequisites — skills to load
+Important — apply everything directly
+Working directory — ~/dt-analysis/<slug>/
 Environment — MCP server + dtctl context alignment
-Step 0/1 — log source (sample / bucket DQL / custom DQL)
-Step 2 — log format analysis report
-Step 3 — parser: DPL (OpenPipeline) or YAML (Bindplane), schema-first approach
-Step 4 — dashboard: pipeline-field tiles or historical inline-parse tiles
+Step 1 — log source (sample / bucket / custom DQL / LogPatternExtractor)
+Step 2 — log format analysis (skipped if LogPatternExtractor used)
+Step 3 — parser: DPL (OpenPipeline) or YAML (Bindplane), schema-first
+Step 4a — dashboard: pipeline fields
+Step 4b — dashboard: historical inline parse
 Step 5 — documentation notebook (optional)
 Step 6 — summary and verification with direct URLs
 ```
@@ -172,15 +150,17 @@ Step 6 — summary and verification with direct URLs
 
 ## Key design decisions
 
-**Schema-first for OpenPipeline** — the prompt instructs Claude Code to run `dtctl describe settings-schema builtin:openpipeline.logs.pipelines` before writing any YAML, avoiding trial-and-error failures from guessing the schema structure.
+**LogPatternExtractor** — when available via MCP, replaces manual log analysis with ML clustering on up to 50,000 records. Returns ready-to-use DPL patterns. Falls back gracefully if the tool is not available on the tenant (preview-gated as of July 2026).
 
-**Incremental DPL validation via MCP** — DPL patterns are tested field-by-field using the MCP `execute_dql` tool, never via bash (shell escaping corrupts DPL patterns). One field at a time, confirmed non-null before adding the next.
+**Schema-first for OpenPipeline** — `dtctl describe settings-schema builtin:openpipeline.logs.pipelines` before writing any YAML. Merge into existing pipeline, never overwrite.
 
-**OpenPipeline matcher rules** — the prompt explicitly lists what is and isn't allowed in OpenPipeline matchers (`matchesValue()` with wildcard ✓, `startsWith()` ✗) to avoid apply failures.
+**Incremental DPL validation via MCP** — test one field at a time using `execute_dql`, never via bash (shell escaping corrupts DPL patterns).
 
-**Tenant auto-detection** — reads `window.location.hostname` and extracts the clean tenant URL, handling both production (`--envid.cluster.apps.dynatrace.com`) and labs/sprint (`--envid.cluster.sprint.apps.dynatracelabs.com`) hostname patterns.
+**OpenPipeline constraints** — `'['`/`']'` bracket literals rejected → use `splitString()`. Processor IDs must be >3 chars. `startsWith()`, `endsWith()`, `contains()` not allowed in matchers.
 
-**Dashboard DQL strategy** — separates "pipeline fields" (clean queries using fields already extracted at ingest) from "historical inline parse" (DQL with embedded parse commands for logs ingested before the parser was active).
+**Dual dashboard strategy** — always generates both: pipeline fields (clean, fast, post-parser) and historical inline parse (covers logs before parser was applied).
+
+**Working directory** — `~/dt-analysis/<slug>/` with descriptive auto-proposed slug. Path recorded in notebook Section 0 for permanent reference.
 
 ---
 
@@ -188,25 +168,15 @@ Step 6 — summary and verification with direct URLs
 
 ```
 dt-bp-ai-prompt/
-├── manifest.yaml          # App metadata (id, name, version, scopes)
-├── icon.svg               # App icon
+├── manifest.yaml      # App metadata (id: my.dt.bp.ai.prompt, v2.0.0)
+├── icon.svg           # App icon
+├── build.sh           # Packaging script
 ├── ui/
-│   ├── index.html         # Shell — loads main.css + main.js, sets data-theme="dark"
-│   └── main.js            # All app logic — pure vanilla JS, zero dependencies
+│   ├── index.html     # Shell — dark theme (data-theme="dark")
+│   └── main.js        # All app logic — pure vanilla JS, zero dependencies
 ```
 
-`main.css` (Dynatrace Stelvio design system, ~450KB) is not committed — see Building from source above.
-
----
-
-## Contributing
-
-PRs welcome. A few things to keep in mind:
-
-- `main.js` is intentionally vanilla JS with no build step — keep it that way
-- All user-facing text is in English
-- The prompt generation logic lives in `generatePrompt()` — improvements to the instructions (especially around OpenPipeline schema, DPL patterns, or Bindplane YAML structure) are the highest-value contributions
-- If you discover new OpenPipeline or dtctl behaviours that should be reflected in the prompt, open an issue with the specific error and the fix
+`ui/main.css` (Stelvio design system) not committed — see Building from source.
 
 ---
 

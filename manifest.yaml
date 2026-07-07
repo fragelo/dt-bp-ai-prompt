@@ -1,7 +1,7 @@
 app-bundle-version: 0.1.0
 id: my.dt.bp.ai.prompt
 name: DT BP - AI Prompt
-version: 1.0.0
+version: 2.0.0
 description: Generate Claude Code prompts for log analysis and parsing
 scopes: []
 icon:
