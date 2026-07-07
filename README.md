@@ -22,13 +22,17 @@ The app auto-detects the tenant URL from the browser hostname, so you just open 
 
 ## Screenshots
 
-| Prompt Generator | Setup Guide |
+| Prompt Generator | Generated prompt example |
 |---|---|
-| *(add screenshot here)* | *(add screenshot here)* |
+| <img width="817" height="984" alt="Screenshot 2026-07-07 at 18 51 11" src="https://github.com/user-attachments/assets/5ce19118-d7a5-4b54-855a-0c23f241cea8" /> | <img width="758" height="914" alt="Screenshot 2026-07-04 at 14 45 23" src="https://github.com/user-attachments/assets/079265e8-5a7f-44f9-a449-750b1ca2fe3e" /> |
 
-| Test Prompt | Generated prompt example |
+| ClaudeCode Output | Generated OpenPipeline Parsing |
 |---|---|
-| *(add screenshot here)* | *(add screenshot here)* |
+| <img width="978" height="698" alt="Screenshot 2026-07-04 at 14 47 33" src="https://github.com/user-attachments/assets/35e82ac8-8055-4340-aee0-c8f4de3729bf" /> | <img width="898" height="586" alt="Screenshot 2026-07-04 at 14 52 31" src="https://github.com/user-attachments/assets/98daa08e-de0c-4f99-ab42-24c8bc70c93e" /> |
+
+| Generated Dashboard | Grail RAW Log Data |
+|---|---|
+| <img width="1161" height="988" alt="Screenshot 2026-07-04 at 14 58 31" src="https://github.com/user-attachments/assets/73445c5a-de46-4729-aae1-3c258c07f466" /> | <img width="1472" height="694" alt="Screenshot 2026-07-04 at 14 59 14" src="https://github.com/user-attachments/assets/1c228be8-7170-487a-82d7-8a76b097e1da" /> |
 
 ---
 
